@@ -860,9 +860,9 @@ def get_gallery_images(cfg):
 
     elif provider == "local":
 
-        return local_images(
-            folder_url
-        )
+        if folder_url.startswith("supabase://"):
+            return supabase_uploaded_images(folder_url.replace("supabase://", "", 1))
+        return local_images(folder_url)
 
     # --------------------------------------------------------
     # AZURE
