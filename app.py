@@ -29,6 +29,34 @@ cfg = load_config()
 
 
 # ============================================================
+# WINDOWS FOLDER BROWSER
+# ============================================================
+
+def browse_local_folder():
+
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+
+        selected_folder = filedialog.askdirectory(
+            title="Select Event Photo Folder"
+        )
+
+        root.destroy()
+
+        if selected_folder:
+            st.session_state["admin_local_folder_path"] = selected_folder
+
+    except Exception as exc:
+
+        st.session_state["folder_browser_error"] = str(exc)
+
+
+# ============================================================
 # GUEST INTERFACE
 # ============================================================
 
@@ -252,7 +280,6 @@ def guest_ui():
 
                             else:
 
-                                # Keep the best distance.
                                 if (
                                     match["distance"]
                                     < combined_matches[name]["distance"]
@@ -506,83 +533,167 @@ def admin_ui():
     # --------------------------------------------------------
 
     st.markdown("---")
+
     st.subheader("🔑 Dropbox Refresh Token Setup")
+
     st.caption(
         "Use this one-time browser workflow to exchange a Dropbox "
         "authorization code for a refresh token. This section is visible "
         "only after organizer login."
     )
 
-    oauth_app_key = st.secrets.get("DROPBOX_APP_KEY", "")
-    oauth_app_secret = st.secrets.get("DROPBOX_APP_SECRET", "")
+    oauth_app_key = st.secrets.get(
+        "DROPBOX_APP_KEY",
+        ""
+    )
+
+    oauth_app_secret = st.secrets.get(
+        "DROPBOX_APP_SECRET",
+        ""
+    )
 
     if not oauth_app_key or not oauth_app_secret:
+
         st.warning(
             "First add DROPBOX_APP_KEY and DROPBOX_APP_SECRET to "
             "Streamlit Cloud → App settings → Secrets, then reload this app."
         )
+
     else:
+
         auth_url = (
             "https://www.dropbox.com/oauth2/authorize?client_id="
             + oauth_app_key
             + "&response_type=code&token_access_type=offline"
         )
-        st.markdown("**Step 1 — Authorize your Dropbox app**")
+
+        st.markdown(
+            "**Step 1 — Authorize your Dropbox app**"
+        )
+
         st.markdown(
             "Open this link, approve the app, and copy the code Dropbox displays."
         )
-        st.code(auth_url, language="text")
-        st.link_button("Open Dropbox Authorization", auth_url)
 
-        st.markdown("**Step 2 — Paste the authorization code here**")
+        st.code(
+            auth_url,
+            language="text"
+        )
+
+        st.link_button(
+            "Open Dropbox Authorization",
+            auth_url
+        )
+
+        st.markdown(
+            "**Step 2 — Paste the authorization code here**"
+        )
+
         oauth_code = st.text_input(
             "Dropbox authorization code",
             key="dropbox_oauth_code",
             help="Paste the code displayed by Dropbox after approving the app.",
         )
 
-        if st.button("🔄 Exchange Code for Refresh Token", key="exchange_dropbox_code"):
+        if st.button(
+            "🔄 Exchange Code for Refresh Token",
+            key="exchange_dropbox_code"
+        ):
+
             if not oauth_code.strip():
-                st.error("Paste the authorization code first.")
+
+                st.error(
+                    "Paste the authorization code first."
+                )
+
             else:
+
                 try:
-                    with st.spinner("Exchanging authorization code with Dropbox..."):
+
+                    with st.spinner(
+                        "Exchanging authorization code with Dropbox..."
+                    ):
+
                         oauth_response = requests.post(
                             "https://api.dropbox.com/oauth2/token",
                             data={
                                 "code": oauth_code.strip(),
                                 "grant_type": "authorization_code",
                             },
-                            auth=(oauth_app_key, oauth_app_secret),
+                            auth=(
+                                oauth_app_key,
+                                oauth_app_secret
+                            ),
                             timeout=30,
                         )
 
                     if oauth_response.ok:
+
                         oauth_data = oauth_response.json()
-                        refresh_token_result = oauth_data.get("refresh_token")
+
+                        refresh_token_result = oauth_data.get(
+                            "refresh_token"
+                        )
+
                         if refresh_token_result:
-                            st.session_state["dropbox_refresh_token_result"] = refresh_token_result
-                            st.success("Refresh token generated successfully. Copy it into Streamlit Secrets.")
+
+                            st.session_state[
+                                "dropbox_refresh_token_result"
+                            ] = refresh_token_result
+
+                            st.success(
+                                "Refresh token generated successfully. "
+                                "Copy it into Streamlit Secrets."
+                            )
+
                         else:
-                            st.error("Dropbox response did not include a refresh token. Make sure the authorization link used token_access_type=offline.")
+
+                            st.error(
+                                "Dropbox response did not include a refresh token. "
+                                "Make sure the authorization link used "
+                                "token_access_type=offline."
+                            )
+
                     else:
+
                         st.error(
                             "Dropbox rejected the authorization code: "
                             + str(oauth_response.status_code)
                             + " — "
                             + oauth_response.text[:500]
                         )
-                except Exception as exc:
-                    st.error(f"Token exchange failed: {exc}")
 
-        if st.session_state.get("dropbox_refresh_token_result"):
-            st.markdown("**Step 3 — Copy this Refresh Token**")
+                except Exception as exc:
+
+                    st.error(
+                        f"Token exchange failed: {exc}"
+                    )
+
+        if st.session_state.get(
+            "dropbox_refresh_token_result"
+        ):
+
+            st.markdown(
+                "**Step 3 — Copy this Refresh Token**"
+            )
+
             st.warning(
                 "This token is sensitive. Do not share it or commit it to GitHub. "
-                "Copy it into Streamlit Cloud Secrets, then remove this temporary setup section/code if desired."
+                "Copy it into Streamlit Cloud Secrets, then remove this temporary "
+                "setup section/code if desired."
             )
-            st.code(st.session_state["dropbox_refresh_token_result"], language="text")
-            st.markdown("Add or update this entry in Streamlit Cloud Secrets:")
+
+            st.code(
+                st.session_state[
+                    "dropbox_refresh_token_result"
+                ],
+                language="text"
+            )
+
+            st.markdown(
+                "Add or update this entry in Streamlit Cloud Secrets:"
+            )
+
             st.code(
                 'DROPBOX_REFRESH_TOKEN = "paste_the_generated_token_here"',
                 language="toml",
@@ -646,13 +757,67 @@ def admin_ui():
         "terabox": "TeraBox shared link",
     }
 
-    folder_url = st.text_input(
-        label_map[provider],
-        value=cfg.get(
-            "folder_url",
-            "",
-        ),
-    )
+    # ========================================================
+    # LOCAL FOLDER PATH WITH WINDOWS BROWSER
+    # ========================================================
+
+    if provider == "local":
+
+        if "admin_local_folder_path" not in st.session_state:
+
+            st.session_state[
+                "admin_local_folder_path"
+            ] = cfg.get(
+                "folder_url",
+                "",
+            )
+
+        col_path, col_browse = st.columns(
+            [5, 1]
+        )
+
+        with col_path:
+
+            folder_url = st.text_input(
+                label_map[provider],
+                key="admin_local_folder_path",
+            )
+
+        with col_browse:
+
+            st.write("")
+
+            st.write("")
+
+            st.button(
+                "📁 Browse",
+                on_click=browse_local_folder,
+                use_container_width=True,
+            )
+
+        if st.session_state.get(
+            "folder_browser_error"
+        ):
+
+            st.error(
+                st.session_state.pop(
+                    "folder_browser_error"
+                )
+            )
+
+    else:
+
+        folder_url = st.text_input(
+            label_map[provider],
+            value=cfg.get(
+                "folder_url",
+                "",
+            ),
+        )
+
+    # --------------------------------------------------------
+    # THRESHOLD
+    # --------------------------------------------------------
 
     threshold = st.slider(
         "Default matching sensitivity",
@@ -666,6 +831,10 @@ def admin_ui():
         ),
         step=0.01,
     )
+
+    # --------------------------------------------------------
+    # ENABLE
+    # --------------------------------------------------------
 
     enabled = st.toggle(
         "Enable guest photo finder",
